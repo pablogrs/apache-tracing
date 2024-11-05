@@ -1,0 +1,137 @@
+x-logging:
+  &default-logging
+  driver: "json-file"
+  options:
+    max-size: "1m"
+    max-file: "5"
+    tag: "{{.Name}}"
+
+services:
+  # Apache image with OpenTelemetry module
+  apache:
+    image: pablogrs/apache-tracing:latest
+    build:
+      dockerfile: Dockerfiles/apache/Dockerfile
+    container_name: apache
+    ports:
+      - "8080:80"
+    volumes:
+      - ./configs/apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+      - ./configs/apache/opentelemetry_module.conf:/usr/local/apache2/conf/opentelemetry_module.conf:ro
+      - ./configs/apache/index.html:/usr/local/apache2/htdocs/index.html:ro
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - apache
+
+  apache-exporter:
+    image: bitnami/apache-exporter:latest
+    container_name: apache-exporter
+    ports:
+      - "9117:9117"
+    command: --scrape_uri http://apache:80/server-status?auto
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - apache-exporter
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_USERS_DEFAULT_THEME=dark
+    volumes:
+      - ./configs/datasources.yaml:/etc/grafana/provisioning/datasources/provisioning-datasources.yaml:ro
+    depends_on:
+      - tempo
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - grafana
+
+  tempo:
+    image: grafana/tempo:2.3.1
+    container_name: tempo
+    ports:
+      - "3200:3200"   # tempo http
+      - "9095:9095"   # tempo grpc
+      - "4310:4318"   # otlp http
+      - "4311:4317"   # otlp grpc
+    volumes:
+      - ./configs/tempo.yaml:/etc/tempo.yaml
+    command: ["-config.file=/etc/tempo.yaml"]
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - tempo
+
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - "./configs/loki.yaml:/etc/loki/loki.yaml"
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - loki
+
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus.yaml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./configs/prometheus.yaml:/etc/prometheus.yaml
+    ports:
+      - "9090:9090"
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - prometheus
+
+  # OTEL Collector
+  # Original image: otel/opentelemetry-collector-contrib:latest is not using root user (which is correct)
+  # But to read the Docker logs directory we need to use root user
+  otel-collector:
+    build:
+      dockerfile: ./Dockerfiles/otel/Dockerfile
+    image: pablogrs/otel:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    ports:
+      - "4318:4318"
+      - "4317:4317"
+    logging: *default-logging
+    networks:
+      traces:
+        aliases:
+          - otel-collector
+
+networks:
+  traces:
+    name: traces
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.10.0/24
+          gateway: 192.168.10.1
+

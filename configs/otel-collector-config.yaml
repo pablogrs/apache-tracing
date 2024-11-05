@@ -1,0 +1,54 @@
+# https://opentelemetry.io/docs/collector/configuration/
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+      grpc:
+        endpoint: "0.0.0.0:4317"
+
+  # Collect Docker logs from the containers
+  # https://lantern.splunk.com/Data_Descriptors/Docker/Getting_Docker_log_data_into_Splunk_Cloud_Platform_with_OpenTelemetry
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    encoding: utf-8
+    fingerprint_size: 1kb
+    force_flush_period: "0"
+    include_file_name: false
+    include_file_path: true
+    max_concurrent_files: 1024
+    poll_interval: 1s
+    start_at: beginning
+
+exporters:
+  otlphttp/traces:
+    endpoint: http://tempo:4318
+    tls:
+      insecure: true      
+  otlphttp/logs:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+  prometheusremotewrite:
+    endpoint: "http://prometheus:9090/api/v1/push"
+    tls:
+      insecure: true
+
+processors:
+  batch:
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlphttp/traces]
+    logs:
+      receivers: [filelog]
+      processors: []
+      exporters: [otlphttp/logs]
+    metrics:
+      receivers: [otlp]
+      processors: []
+      exporters: [prometheusremotewrite]
