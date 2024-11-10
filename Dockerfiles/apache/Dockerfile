@@ -1,5 +1,7 @@
+ARG APACHE_IMAGE
+
 # https://hub.docker.com/_/httpd
-FROM httpd:2.4
+FROM ${APACHE_IMAGE}
 
 ARG APACHE_OTEL_MODULE_VERSION=1.1.0
 

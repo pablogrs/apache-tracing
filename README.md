@@ -7,19 +7,22 @@ And lastly, it uses Prometheus to collect metrics from Apache Exporter and Grafa
 
 ## Requirements
 - Docker
-- Docker Compose
+- Docker Compose plugin https://docs.docker.com/compose/install/linux/
 
 ## How to run
-1. Clone this repository
-2. Build the images for Apache and Otel Collector
+1. Clone this repository and go to the directory where it was cloned
 ```bash
-docker-compose build
+git clone https://github.com/pablogrs/apache-tracing.git && \
+cd apache-tracing
 ```
-3. Run the services
+2. Run the script to build the images for Apache and Otel Collector and run the compose up
 ```bash
-docker-compose up
+./compose-up-architecture-based.sh
 ```
-
+3. Destroy the containers by running
+```bash
+docker compose down
+```
 
 ## Checking Traces
 Access Grafana, open your browser and go to `http://localhost:3000`.

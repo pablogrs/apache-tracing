@@ -1,5 +1,6 @@
 # https://hub.docker.com/r/bitnami/minideb
-FROM bitnami/minideb:bullseye
+ARG OTEL_IMAGE
+FROM ${OTEL_IMAGE}
 
 ARG OTEL_COLLECTOR_VERSION=0.112.0
 

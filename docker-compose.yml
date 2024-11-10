@@ -9,8 +9,10 @@ x-logging:
 services:
   # Apache image with OpenTelemetry module
   apache:
-    image: pablogrs/apache-tracing:latest
+    image: apache-tracing:latest
     build:
+      args:
+        APACHE_IMAGE: ${APACHE_IMAGE}
       dockerfile: Dockerfiles/apache/Dockerfile
     container_name: apache
     ports:
@@ -38,7 +40,7 @@ services:
           - apache-exporter
 
   grafana:
-    image: grafana/grafana:10.4.2
+    image: ${GRAFANA_IMAGE}
     container_name: grafana
     ports:
       - 3000:3000
@@ -57,7 +59,7 @@ services:
           - grafana
 
   tempo:
-    image: grafana/tempo:2.3.1
+    image: grafana/tempo:latest
     container_name: tempo
     ports:
       - "3200:3200"   # tempo http
@@ -74,7 +76,7 @@ services:
           - tempo
 
   loki:
-    image: grafana/loki:3.1.0
+    image: grafana/loki:latest
     container_name: loki
     ports:
       - "3100:3100"
@@ -88,7 +90,7 @@ services:
           - loki
 
   prometheus:
-    image: prom/prometheus:v2.51.1
+    image: prom/prometheus:latest
     container_name: prometheus
     command:
       - --config.file=/etc/prometheus.yaml
@@ -108,9 +110,11 @@ services:
   # Original image: otel/opentelemetry-collector-contrib:latest is not using root user (which is correct)
   # But to read the Docker logs directory we need to use root user
   otel-collector:
+    image: otel-minideb:latest
     build:
       dockerfile: ./Dockerfiles/otel/Dockerfile
-    image: pablogrs/otel:latest
+      args:
+        OTEL_IMAGE: ${OTEL_IMAGE}
     container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
